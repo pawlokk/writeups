@@ -1,0 +1,19 @@
+this was a medium thm room, it was heavily based on enumerating with gobuster and finding the right directory with several rabit holes 
+
+despite having a medium difficulty, i thought it was easier than some easy rooms 
+
+nmap showed several open ports, 
+
+21 ftp that allowed anonymous login with .info.txt inside that included ROT13 cipher turning out to be a rabbit hole
+
+80 http, that revealed several directories discovered by gobuster, the most interesting being joomla CMS. The key to the box was included in the cms, sar2html which is a frontend tool used to measure perforomance. It includes a vulnerability that allows RCE, which is how i got initial foothold and a reverse shell
+
+[https://github.com/AssassinUKG/sar2HTML](https://github.com/AssassinUKG/sar2HTML)
+
+other ports included ssh in port range 50000+, which was key to later exploitation, and webmin at port 10000 which was unavailable and unexploitable 
+
+after gaining foothold and a reverse shell as www-data, i was able to list the directory of sar2html, find a log.txt file with ssh credentials for user bastard 
+
+after logging in through ssh as user bastard, its home dir included a backup sh script with ssh credentials for user stoner 
+
+after logging in as user stoner and preliminary enumeration, i found that the find binary has a SUID set. I escalated my privileges through a oneliner found in GTFObins, and that concluded the box
