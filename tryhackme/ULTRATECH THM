@@ -1,0 +1,64 @@
+this was a tryhackme medium room 
+
+starting of with enumeration, nmap reveals ports 21,22,8081,31331 open, respectively 
+
+ssh, ftp, node.js API, http apache server
+
+http apache server reveals a site for dummy business, gobuster found a couple directories:
+
+/images, /js, /javascript, /css, /robots.txt 
+
+robots.txt contained important info, a sitemap, which further revealed a login page and a couple different things
+
+key to the box was /js directory, which included a script that interacted with the API 
+
+running gobuster on port 8081 revealed two directories
+
+/ping and /auth 
+
+/ping was being used by the script to ping the machine itself in order to discover availability, the /auth dir was used by /partners.html on port 31331 as authentiaction mechanism 
+
+/ping took a ‘ip’ argument, which was autofilled by the script as localhosts ip, it was the place to inject a command, i used a couple techniques found here:
+
+[https://book.hacktricks.xyz/pentesting-web/command-injection](https://book.hacktricks.xyz/pentesting-web/command-injection) 
+
+what worked was backticks ( ` ), final query looked something like this
+
+`targetip/ping?ip=<attackerip>`id`` 
+
+this would return the id of user www-data 
+
+after many tries of getting the injected command to send a connection back to my listener, i decided to enumerate the directory and found a .sqlite file 
+
+i opened the db file `utech.db.sqlite` using sqlitebrowser, conveniently preinstalled on my kali machine
+
+my next step was to run a python http server, this allowed me to pull the database file which contained usernames and hashes:
+
+admin:mrsheafy
+r00t:n100906
+
+both of these worked for the authentiaction page, but r00t:n100906 allowed me to log into the machine using SSH 
+
+now, onto priv esc 
+
+looking through directories, crontab, exports, home dirs of the users, analysing scripts found, running privesc enumeration scripts, what stood out was that user r00t was a part of a docker group 
+
+enumerating & exploiting our user being part of docker group:
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/860c908a-52c8-499d-938f-fba6ef875046/Untitled.png)
+
+`docker ps -a` — listing installed images
+
+`docker run -it -v /:/mnt bash` — brakedown:
+
+-v  — volume mount 
+
+-it — interactive, allocating a tty to the process 
+
+/:/mnt — mounting / directory to /mnt 
+
+bash — name of installed image
+
+this spawned a docker env, with the whole box mounted to the env inside /mnt directory 
+
+with root privs inside the docker environment i was able to explore the whole system together with the /root directory
