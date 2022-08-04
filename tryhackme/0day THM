@@ -1,0 +1,27 @@
+standard procedure everything 
+
+nmap reveals ssh port and http port, 
+
+running standard enums on http port, gobuster discovers some interesting directories, however nikto links a exploit-db link saying this will get us RCE
+
+so it did, and it allowed me to grab a shell, 
+
+link to exploit-db:
+
+[http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-6271](http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2014-6271) 
+
+after getting a shell and doing some enumeration, it turned out that the machine is vulnerable to some kernel exploit, specifically this one:
+
+[https://www.exploit-db.com/exploits/37292](https://www.exploit-db.com/exploits/37292) 
+
+theres a instruction inside, but whats important is that gcc output an error saying:
+
+`gcc: error trying to exec 'cc1': execvp: No such file or directory`
+
+this was because the compiler couldnt locate cc1 due to inconsistent PATH variables
+
+fix to this is getting our PATH variable inline with a standard Ubuntu PATH, which we do with the following command:
+
+`export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin`
+
+this allowed the compiler to run, generating an executable that got us a root shell
