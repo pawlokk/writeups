@@ -1,0 +1,46 @@
+this was one quick and easy
+
+nmap reveals ports 80, 135, 139, 435, 3389 
+
+site on port 80 doesnt reveal anything, nikto, gobuster - no output 
+
+key points of the CTF:
+
+enumerating samba 
+
+`nmap —script=smb* -p 139,435 TARGETIP -v`
+
+`smbclient -L //TARGETIP/`
+
+this, and nmap script reveals below shares:
+
+Sharename       Type      Comment
+---------       ----      -------
+ADMIN$          Disk      Remote Admin
+C$                    Disk      Default share
+IPC$                 IPC       Remote IPC
+nt4wrksv          Disk
+
+then,
+
+smbclient \\\\10.10.4.134\\nt4wrksv
+
+reveals passwords.txt which has 2 base64 encoded strings inside, that reveal below credentials:
+
+**Bob - !P@$$W0rD!123** 
+
+**Bill - Juw4nnaM4n420696969!$$$**
+
+after discovering credentials and running:
+
+`nmap —script=vuln TARGETIP -v` 
+
+reveals that smb is vulnerable to MS-17-010, eternalblue 
+
+exploiting this with metasploit is very easy, however usual exploit “**windows/smb/ms17_010_eternalblue”** 
+
+wouldn’t work, so i used 
+
+**“windows/smb/ms17_010_psexec”** 
+
+instead, got a meterpreter system shell, which allowed me to grab user and root flag and complete the challenge
