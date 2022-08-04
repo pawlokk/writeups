@@ -1,0 +1,37 @@
+this one wasnt fun 
+
+part 1:
+
+didnt even enumerate much, ran nmap with default scripts, sqlmap on some stuff i thought would be injectable and nikto on the page in general, look through source and read /robots.txt 
+
+walking the app:
+
+pretty basic site, login pane screams at us, 
+
+bruteforced it guessing some pretty default usernames (pennywise theme, but used admin)
+
+for passwords i used rockyou.txt, bruteforced it with ZAP as burp wont load rockyou 
+
+admin:1qaz2wsx 
+
+then, after looking up blog management system, which was [BlogEngine.NET](http://BlogEngine.NET) 3.3.6, it turned out that exploit-db has a script that gets us a reverse shell 
+
+part 2:
+
+pivoting to meterpreter 
+
+generate payload with msfvenom, pretty basic stuff 
+
+windows/meterpreter/reverse_tcp  just like in other windows machines
+
+upload it to C:\Windows\Temp using powershell wget and python webserver 
+
+set up multi/handler, and run the executable within our shell 
+
+part 3:
+
+priv esc 
+
+winPEAS.bat uploaded throught meterpreter, where we could find Scheduler service software running as system with a writeable folder 
+
+it came down to generating a reverse shell and uploading it as .exe of the service 
