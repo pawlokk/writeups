@@ -1,0 +1,45 @@
+this was a OSCP marked CTF that i downlaoded using vulnhub 
+
+it wasn’t that hard, required good web directories enumeration, paying close attention to errors spitted out by PHP, exploiting them, and then retrying passwords revealed by the vulnerability in different services 
+
+i started with nmap enumeration which revealed port 139 and 445 (samba, rabbithole), 113 NBSS - rabbithole, 22 for ssh, 8080 - our webapp 
+
+i tried reaching the samba ports for any information but they turned out to be non accessible for me
+
+I started enumerating port 8080 by reading through the source code of the main page and noticed comments about a secret development page, so i decided to run a gobuster scan which revealed a 
+
+/about, and
+
+/development page
+
+the about page included information about a test.pcap file (wireshark packet capture), which i downloaded and inspected, finding /secretdevelopmentpagev1 
+
+upon inspecting newly found directory i noticed a logout button, which took me to a login pane
+
+after inputting anything into the login pane it would take me back to the page i just logged out of with below errors:
+
+![287976537_4852800104829679_5027531047754224228_n.png](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/44dba11f-96fd-494e-aa0c-72b2809871ac/287976537_4852800104829679_5027531047754224228_n.png)
+
+at first, i wanted to exploit the deprecated php function, but after researching the slogin_lib.inc.php file, i found a exploit for this login mechanism (which was also mentioned in the /about page) -Simple Text-File Login script 
+
+ 
+
+[Offensive Security's Exploit Database Archive](https://www.exploit-db.com/exploits/7444)
+
+this allowed me to grab user details, usernames and hashes
+
+![Untitled](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/7993fca8-027b-46fb-912a-a9b22e274f61/Untitled.png)
+
+as it turned out, the intern account had their password reused for ssh, which only got me a restricted shell that would kick me out after trying enumerating the env, displaying python errors
+
+so i decided to research escaping a restricted ssh shell built with python, and this is what worked for me:
+
+`exit_code = os.system('/bin/sh') output = os.popen('/bin/sh').read()`
+
+this got me an unrestricted shell, after which i started enumerating the web files, user files, ran linpeas, ran different manual enumeration techniques, tried exploiting the kernel version, all with no luck
+
+thats when i remembered about other accounts respective passwords found in the webapp 
+
+as it turned out, the password matched for user Patrick, whose account was able to run both vim and nano as user without supplying the password, so privesc was done in a oneliner from GTFObins. 
+
+![287228561_406202308095235_875305450811446102_n.png](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/4a5e8882-8647-4149-b177-ccabea1763a3/287228561_406202308095235_875305450811446102_n.png)
