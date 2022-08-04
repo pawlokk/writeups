@@ -1,0 +1,39 @@
+this was a medium diff tryhackme room 
+
+enumeration showed open ssh, http, and samba 
+
+port 80 hosted a wordpress site which i started my enumeration with 
+
+standard enumeration; nikto, gobuster, manually reviewing source codes, burp traffic didnt show much, so i decided to go with wp-enum and wp-scan
+
+[https://github.com/TheNittam/wp-enum](https://github.com/TheNittam/wp-enum)
+
+wp-scan was preinstalled on kali 
+
+this showed potential usernames, which i used to bruteforce the login pane using OWASP ZAP
+
+credentials revealed to be kwheel:cutiepie1 
+
+this allowed me to use `CVE-2019-89242 | CVE-2019-89242`
+
+[Offensive Security's Exploit Database Archive](https://www.exploit-db.com/exploits/49512)
+
+through metasploit, this is how i got my initial shell 
+
+after this came enumeration, i checked nopasswd sudo entries, readability of crucial files, mysql database using credentials found in wordpress config files. Mysql contained password hashes that proved to be a rabbit hole, hence i couldn’t crack them with hashcat and further steps didn’t require them 
+
+upon reviewing binaries with SUID set, i found a script called checker in /usr/sbin directory 
+
+the script upon running output only one string
+
+“Not an admin” 
+
+after inspecting it with 
+
+`ltrace checker` 
+
+it turned out that the script checks for a environment variable called admin
+
+`export admin=1`
+
+allowed me to execute the script successfully, and as it had SUID set i got a root shell and was able to retrieve both the flags
