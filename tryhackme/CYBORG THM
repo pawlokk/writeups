@@ -1,0 +1,49 @@
+nmap enumerations shows ports 22 and 80 open, i tried rerunning it with `-p-`to reveal any less common ports but no results 
+
+http site reveals just the apache default site, so i decided to run gobuster
+
+gobuster revealed `/admin` and `/etc` web dirs
+
+`/admin` was just a blog site, with a note about a squid proxy that he tried running but disabled, and about config files lying around 
+
+`/etc` containted a `passwd` file with:
+
+> music_archive:$apr1$BpZ.Q.1m$F0qqPwHSOG50URuOVQTTn.
+> 
+
+inside, which was easily cracked with john to reveal the password to be 
+
+`squidward`
+
+ this proved useful for an `archive.tar` file, which was available on the site under `/admin` web dir
+
+the archive file contained a borg backup file, which i was able to extract using below command:
+
+`borg list .`
+
+`borg extract /home/kali/Desktop/workspace/cyborg/home/field/dev/final_archive::music_archive`
+
+after extracting, this proved to be a home directory of a user named alex, where i found plaintext credentials;
+
+`alex:S3cretP@s3`
+
+this were good to log me into the machine through ssh
+
+privilege escalation:
+
+having started manual privesc enumeration, first thing i tried was `sudo -l` , which revealed that our user could run a script without providing password for sudo 
+
+the script itself wasn’t very interesting, at first i tried to exploit it using path manipulation techniques by adding `/tmp` directory to the PATH variable, and then copying `/bin/bash` to the `/tmp` directory as the `find` command 
+
+this wouldn’t work, eventually i exploited the script by leveraging the last 2 lines in the script:
+
+```
+cmd=$($command)
+echo $cmd
+```
+
+all that had to be done was adding a command of our choosing by specyfing it in the CLI as `-c` parameter like so:
+
+`sudo /etc/mp3backups/backup.sh -c "/bin/bash”`
+
+this popped a root shell, and allowed me to end the challenge
