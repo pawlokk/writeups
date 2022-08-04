@@ -1,0 +1,41 @@
+this one was a battle with unstable shells
+
+so, we get presented a machine with port 80 and 8080 open, with 80 being the basic apache2 site, and 8080 being simple image gallery system, which surprisingly had a RCE exploit on exploit-db:
+
+[https://www.exploit-db.com/exploits/50198](https://www.exploit-db.com/exploits/50198) 
+
+this + SQLi allowed to get inside the app (rabbithole), and allowed RCE from which i got a reverse shell, from important stuff:
+
+- REMEMBER ABOUT HTML URL ENCODINGS - this is what i couldnt figure out and got me a shell
+
+after getting the shell, i fought for stabilising it, gathered a meterpreter shell that didnt prove very useful, so, after getting a shell remember to:
+
+`which python`
+
+`which python3` 
+
+`which nc`
+
+`which socat`
+
+this would’ve saved me an hour or so of fighting - if theres socat on the machine, its an easy win 
+
+so after enumerating MARIADB, using this cheatsheet:
+
+[https://bertvv.github.io/cheat-sheets/MySQL-MariaDB.html](https://bertvv.github.io/cheat-sheets/MySQL-MariaDB.html) 
+
+having gotten creds from initialize.php from the /gallery web directory
+
+i found nothing
+
+after enumerating some more we can find a backups directory in /var/backups, which contains a password for user mike (which we can logon to through a stabilized shell!!!), and other creds that didn’t prove useful 
+
+after stabilising the shell, logging in as mike, simple entry of
+
+`sudo -l`
+
+gets us an asnwer to the privesc 
+
+our user is able to run some script using nano with root privileges 
+
+so after a fight to get nano open in the shell, when i finally got it, the exploit was easy and found on gtfobins
